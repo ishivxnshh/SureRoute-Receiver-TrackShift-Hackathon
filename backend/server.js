@@ -23,6 +23,9 @@ const reconstructedFiles = [];
 // WebSocket connections
 const wsClients = new Set();
 
+// Transfer method tracking
+const transferMethods = new Map(); // fileId -> 'wifi' | 'bluetooth'
+
 wss.on('connection', (ws) => {
   console.log('New WebSocket client connected');
   wsClients.add(ws);
@@ -58,11 +61,14 @@ function verifyHash(data, expectedHash) {
 
 // Initialize a new file transfer
 app.post('/api/transfer/init', (req, res) => {
-  const { fileId, fileName, fileSize, totalChunks, mimeType } = req.body;
+  const { fileId, fileName, fileSize, totalChunks, mimeType, transferMethod } = req.body;
   
   if (!fileId || !fileName || !totalChunks) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
+
+  const method = transferMethod || 'wifi'; // Default to WiFi
+  transferMethods.set(fileId, method);
 
   fileTransfers.set(fileId, {
     fileId,
@@ -73,22 +79,64 @@ app.post('/api/transfer/init', (req, res) => {
     chunks: new Map(),
     receivedChunks: 0,
     startTime: Date.now(),
-    status: 'receiving'
+    status: 'receiving',
+    transferMethod: method,
+    methodSwitches: [] // Track method switches
   });
 
-  console.log(`Initialized transfer for ${fileName} (${totalChunks} chunks)`);
+  console.log(`📡 Initialized ${method.toUpperCase()} transfer for ${fileName} (${totalChunks} chunks)`);
   
   broadcast({
     type: 'TRANSFER_INIT',
     transfer: fileTransfers.get(fileId)
   });
 
-  res.json({ success: true, fileId });
+  res.json({ success: true, fileId, transferMethod: method });
+});
+
+// Switch transfer method
+app.post('/api/transfer/switch-method', (req, res) => {
+  const { fileId, newMethod } = req.body;
+
+  if (!fileId || !newMethod || !['wifi', 'bluetooth'].includes(newMethod)) {
+    return res.status(400).json({ error: 'Invalid request' });
+  }
+
+  const transfer = fileTransfers.get(fileId);
+  if (!transfer) {
+    return res.status(404).json({ error: 'File transfer not found' });
+  }
+
+  const oldMethod = transfer.transferMethod;
+  if (oldMethod !== newMethod) {
+    transfer.transferMethod = newMethod;
+    transfer.methodSwitches.push({
+      from: oldMethod,
+      to: newMethod,
+      timestamp: Date.now(),
+      chunkCount: transfer.receivedChunks
+    });
+
+    transferMethods.set(fileId, newMethod);
+
+    console.log(`🔄 Switched: ${oldMethod.toUpperCase()} → ${newMethod.toUpperCase()} for ${transfer.fileName} (${transfer.receivedChunks}/${transfer.totalChunks} chunks)`);
+
+    broadcast({
+      type: 'METHOD_SWITCHED',
+      fileId,
+      oldMethod,
+      newMethod,
+      fileName: transfer.fileName,
+      progress: transfer.receivedChunks / transfer.totalChunks * 100
+    });
+  }
+
+  res.json({ success: true, currentMethod: newMethod });
 });
 
 // Receive a file chunk
 app.post('/api/transfer/chunk', (req, res) => {
-  const { fileId, chunkIndex, chunkData, chunkHash } = req.body;
+  const { fileId, chunkIndex, chunkData, chunkHash, transferMethod } = req.body;
 
   if (!fileId || chunkIndex === undefined || !chunkData || !chunkHash) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -99,12 +147,36 @@ app.post('/api/transfer/chunk', (req, res) => {
     return res.status(404).json({ error: 'File transfer not found' });
   }
 
+  // Auto-detect method switch
+  const currentMethod = transferMethod || transferMethods.get(fileId) || 'wifi';
+  if (currentMethod !== transfer.transferMethod) {
+    transfer.methodSwitches.push({
+      from: transfer.transferMethod,
+      to: currentMethod,
+      timestamp: Date.now(),
+      chunkCount: transfer.receivedChunks
+    });
+    transfer.transferMethod = currentMethod;
+    transferMethods.set(fileId, currentMethod);
+
+    console.log(`🔄 Auto-switched to ${currentMethod.toUpperCase()} at chunk ${chunkIndex + 1}`);
+    
+    broadcast({
+      type: 'METHOD_SWITCHED',
+      fileId,
+      oldMethod: transfer.transferMethod,
+      newMethod: currentMethod,
+      fileName: transfer.fileName,
+      progress: transfer.receivedChunks / transfer.totalChunks * 100
+    });
+  }
+
   // Convert base64 to buffer
   const buffer = Buffer.from(chunkData, 'base64');
   
   // Verify SHA-256 hash
   if (!verifyHash(buffer, chunkHash)) {
-    console.error(`Hash verification failed for chunk ${chunkIndex} of ${transfer.fileName}`);
+    console.error(`❌ Hash verification failed for chunk ${chunkIndex} of ${transfer.fileName}`);
     return res.status(400).json({ error: 'Hash verification failed' });
   }
 
@@ -112,7 +184,8 @@ app.post('/api/transfer/chunk', (req, res) => {
   transfer.chunks.set(chunkIndex, buffer);
   transfer.receivedChunks = transfer.chunks.size;
 
-  console.log(`Received chunk ${chunkIndex + 1}/${transfer.totalChunks} for ${transfer.fileName} (Hash: ${chunkHash.substring(0, 8)}...)`);
+  const methodIcon = currentMethod === 'bluetooth' ? '📲' : '📡';
+  console.log(`${methodIcon} [${currentMethod.toUpperCase()}] Chunk ${chunkIndex + 1}/${transfer.totalChunks} for ${transfer.fileName} (Hash: ${chunkHash.substring(0, 8)}...)`);
 
   // Broadcast chunk received
   broadcast({
@@ -122,7 +195,8 @@ app.post('/api/transfer/chunk', (req, res) => {
     chunkHash: chunkHash.substring(0, 16),
     receivedChunks: transfer.receivedChunks,
     totalChunks: transfer.totalChunks,
-    fileName: transfer.fileName
+    fileName: transfer.fileName,
+    transferMethod: currentMethod
   });
 
   // Check if all chunks received
@@ -175,7 +249,10 @@ async function reconstructFile(fileId) {
       data: fileBuffer.toString('base64'),
       reconstructedAt: new Date().toISOString(),
       transferTime: Date.now() - transfer.startTime,
-      totalChunks: transfer.totalChunks
+      totalChunks: transfer.totalChunks,
+      transferMethod: transfer.transferMethod,
+      methodSwitches: transfer.methodSwitches,
+      finalMethod: transfer.transferMethod
     };
 
     reconstructedFiles.unshift(reconstructedFile);
@@ -245,7 +322,8 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     activeTransfers: fileTransfers.size,
     reconstructedFiles: reconstructedFiles.length,
-    connectedClients: wsClients.size
+    connectedClients: wsClients.size,
+    supportedMethods: ['wifi', 'bluetooth']
   });
 });
 
@@ -254,13 +332,16 @@ server.listen(PORT, () => {
   console.log(`║  Smart File Transfer System - Backend     ║`);
   console.log(`║  Server running on port ${PORT}             ║`);
   console.log(`║  WebSocket ready for real-time updates    ║`);
+  console.log(`║  📡 WiFi & 📲 Bluetooth Support           ║`);
   console.log(`╚════════════════════════════════════════════╝`);
   console.log(`\nEndpoints:`);
-  console.log(`  POST /api/transfer/init   - Initialize file transfer`);
-  console.log(`  POST /api/transfer/chunk  - Upload file chunk`);
-  console.log(`  GET  /api/files           - Get all files`);
-  console.log(`  GET  /api/files/:id       - Get specific file`);
-  console.log(`  GET  /api/transfers       - Get active transfers`);
-  console.log(`  GET  /api/health          - Health check`);
+  console.log(`  POST /api/transfer/init          - Initialize file transfer`);
+  console.log(`  POST /api/transfer/chunk         - Upload file chunk`);
+  console.log(`  POST /api/transfer/switch-method - Switch transfer method`);
+  console.log(`  GET  /api/files                  - Get all files`);
+  console.log(`  GET  /api/files/:id              - Get specific file`);
+  console.log(`  GET  /api/transfers              - Get active transfers`);
+  console.log(`  GET  /api/health                 - Health check`);
   console.log(`\nWebSocket: ws://localhost:${PORT}`);
+  console.log(`\nSupported Methods: WiFi 📡, Bluetooth 📲`);
 });

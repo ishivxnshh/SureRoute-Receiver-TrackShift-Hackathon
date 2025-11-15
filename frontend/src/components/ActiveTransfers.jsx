@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Progress } from './ui/progress'
 import { formatBytes } from '@/lib/utils'
-import { Package, Layers } from 'lucide-react'
+import { Package, Layers, Wifi, Bluetooth } from 'lucide-react'
 
 export default function ActiveTransfers({ transfers }) {
   if (transfers.length === 0) {
@@ -35,6 +35,8 @@ export default function ActiveTransfers({ transfers }) {
       <CardContent className="space-y-4">
         {transfers.map((transfer) => {
           const progress = (transfer.receivedChunks / transfer.totalChunks) * 100
+          const TransferIcon = transfer.transferMethod === 'bluetooth' ? Bluetooth : Wifi
+          const methodColor = transfer.transferMethod === 'bluetooth' ? 'text-blue-500' : 'text-green-500'
           
           return (
             <div 
@@ -65,6 +67,15 @@ export default function ActiveTransfers({ transfers }) {
                 <span className="flex items-center gap-1">
                   <Package className="w-3 h-3" />
                   {transfer.totalChunks} chunks
+                </span>
+                <span className={`flex items-center gap-1 font-semibold ${methodColor}`}>
+                  <TransferIcon className="w-3 h-3" />
+                  {transfer.transferMethod?.toUpperCase() || 'WIFI'}
+                  {transfer.methodSwitches && transfer.methodSwitches.length > 0 && (
+                    <span className="text-orange-500 ml-1">
+                      ({transfer.methodSwitches.length} switches)
+                    </span>
+                  )}
                 </span>
               </div>
             </div>

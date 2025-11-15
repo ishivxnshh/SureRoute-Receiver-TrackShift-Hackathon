@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { formatBytes, formatTime, base64ToBlob } from '@/lib/utils'
-import { FileText, Download, Eye, EyeOff, Clock, Hash } from 'lucide-react'
+import { FileText, Download, Eye, EyeOff, Clock, Hash, Wifi, Bluetooth, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 
 export default function FileList({ files, onDownload }) {
@@ -82,10 +82,21 @@ export default function FileList({ files, onDownload }) {
                   <p className="font-semibold">{formatTime(file.transferTime)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Received</p>
-                  <p className="font-semibold">
-                    {new Date(file.reconstructedAt).toLocaleTimeString()}
-                  </p>
+                  <p className="text-gray-500 text-xs">Method</p>
+                  <div className="flex items-center gap-1">
+                    {file.transferMethod === 'bluetooth' ? (
+                      <Bluetooth className="w-3 h-3 text-blue-500" />
+                    ) : (
+                      <Wifi className="w-3 h-3 text-green-500" />
+                    )}
+                    <p className="font-semibold">{(file.transferMethod || 'wifi').toUpperCase()}</p>
+                    {file.methodSwitches && file.methodSwitches.length > 0 && (
+                      <Badge variant="warning" className="ml-1 text-[10px] px-1 py-0">
+                        <RefreshCw className="w-2 h-2 mr-0.5" />
+                        {file.methodSwitches.length}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
 

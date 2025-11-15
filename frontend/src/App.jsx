@@ -54,14 +54,33 @@ function App() {
           if (t.fileId === data.fileId) {
             const updated = {
               ...t,
-              receivedChunks: [...(t.receivedChunks || []), data.chunkIndex]
+              receivedChunks: [...(t.receivedChunks || []), data.chunkIndex],
+              transferMethod: data.transferMethod || t.transferMethod
             }
             setActiveTransfer(updated)
             return updated
           }
           return t
         }))
-        addLog(`Chunk ${data.chunkIndex + 1}/${data.totalChunks} received for ${data.fileName} [${data.chunkHash}...]`, 'chunk')
+        addLog(`Chunk ${data.chunkIndex + 1}/${data.totalChunks} received for ${data.fileName} [${data.chunkHash}...] via ${(data.transferMethod || 'wifi').toUpperCase()}`, 'chunk')
+        break
+
+      case 'METHOD_SWITCHED':
+        setTransfers(prev => prev.map(t => {
+          if (t.fileId === data.fileId) {
+            return {
+              ...t,
+              transferMethod: data.newMethod,
+              methodSwitches: [...(t.methodSwitches || []), {
+                from: data.oldMethod,
+                to: data.newMethod,
+                timestamp: Date.now()
+              }]
+            }
+          }
+          return t
+        }))
+        addLog(`Transfer method switched: ${data.oldMethod.toUpperCase()} → ${data.newMethod.toUpperCase()} for ${data.fileName}`, 'chunk')
         break
 
       case 'RECONSTRUCTION_START':
