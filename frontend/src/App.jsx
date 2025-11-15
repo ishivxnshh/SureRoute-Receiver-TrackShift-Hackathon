@@ -22,6 +22,7 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null)
   const [executing, setExecuting] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [resetting, setResetting] = useState(false)
 
   const addLog = useCallback((message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString()
@@ -101,6 +102,13 @@ function App() {
       case 'RECONSTRUCTION_ERROR':
         addLog(`Error reconstructing file: ${data.error}`, 'error')
         break
+
+      case 'RESET':
+        setTransfers([])
+        setFiles([])
+        setActiveTransfer(null)
+        addLog('Receiver reset: cleared transfers and files', 'warning')
+        break
     }
   }, [addLog])
 
@@ -160,6 +168,24 @@ function App() {
       addLog(`Downloaded: ${fileData.fileName}`, 'success')
     } catch (error) {
       addLog(`Download failed: ${error.message}`, 'error')
+    }
+  }
+
+  const handleReset = async () => {
+    try {
+      setResetting(true)
+      // Optimistically clear local state
+      setTransfers([])
+      setFiles([])
+      setActiveTransfer(null)
+      setLogs([])
+      const resp = await fetch(`${API_URL}/reset`, { method: 'POST' })
+      if (!resp.ok) throw new Error('Reset failed')
+      addLog('Reset completed', 'success')
+    } catch (e) {
+      addLog(`Reset error: ${e.message}`, 'error')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -280,6 +306,14 @@ function App() {
                     className="text-xs"
                   >
                     {executing ? 'Executing...' : 'Execute'}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    disabled={resetting}
+                    onClick={handleReset}
+                    className="text-xs"
+                  >
+                    {resetting ? 'Resetting...' : 'Reset'}
                   </Button>
                 </div>
               </div>

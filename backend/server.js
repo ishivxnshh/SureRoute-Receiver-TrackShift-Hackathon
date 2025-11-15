@@ -327,6 +327,22 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Reset all in-memory state
+app.post('/api/reset', (req, res) => {
+  try {
+    fileTransfers.clear();
+    reconstructedFiles.length = 0;
+    transferMethods.clear();
+
+    broadcast({ type: 'RESET' });
+    console.log('🧹 In-memory state reset.');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Reset error:', err);
+    res.status(500).json({ success: false, error: 'Reset failed' });
+  }
+});
+
 server.listen(PORT, () => {
   console.log(`╔════════════════════════════════════════════╗`);
   console.log(`║  Smart File Transfer System - Backend     ║`);
@@ -342,6 +358,7 @@ server.listen(PORT, () => {
   console.log(`  GET  /api/files/:id              - Get specific file`);
   console.log(`  GET  /api/transfers              - Get active transfers`);
   console.log(`  GET  /api/health                 - Health check`);
+  console.log(`  POST /api/reset                  - Reset in-memory state`);
   console.log(`\nWebSocket: ws://localhost:${PORT}`);
   console.log(`\nSupported Methods: WiFi 📡, Bluetooth 📲`);
 });
