@@ -316,6 +316,23 @@ app.get('/api/transfers', (req, res) => {
   res.json(transfers);
 });
 
+// Get single transfer by id (for resume / status)
+app.get('/api/transfer/:fileId', (req, res) => {
+  const { fileId } = req.params;
+  const transfer = fileTransfers.get(fileId);
+
+  if (!transfer) {
+    return res.status(404).json({ error: 'File transfer not found' });
+  }
+
+  // Mirror shape used in /api/transfers
+  res.json({
+    ...transfer,
+    chunks: undefined,
+    chunksReceived: Array.from(transfer.chunks.keys())
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
