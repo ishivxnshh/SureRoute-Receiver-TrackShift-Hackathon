@@ -6,8 +6,10 @@ import ActiveTransfers from './components/ActiveTransfers'
 import ChunkVisualizer from './components/ChunkVisualizer'
 import ActivityLog from './components/ActivityLog'
 import FileList from './components/FileList'
+import AnimatedBackground from './components/ui/animated-background'
 import { base64ToBlob } from './lib/utils'
-import { Radio, FolderOpen, Activity as ActivityIcon } from 'lucide-react'
+import { Radio, FolderOpen, Activity as ActivityIcon, Sparkles } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:5050'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5050/api'
@@ -189,61 +191,119 @@ function App() {
 
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50">
-      <div className="container mx-auto p-6 space-y-6 max-w-7xl">
+    <div className="min-h-screen relative">
+      <AnimatedBackground />
+      
+      <div className="container mx-auto p-6 space-y-6 max-w-7xl relative z-10">
         {/* Header */}
-        <Card className="gradient-primary text-white border-0 shadow-xl">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-                  <Radio className="w-8 h-8" />
-                  Smart File Transfer System
-                </h1>
-                <p className="text-white/90">
-                  Real-time Chunked File Transfer with SHA-256 Verification
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Badge 
-                  variant={wsConnected ? 'success' : 'destructive'}
-                  className="px-3 py-1"
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Card className="backdrop-blur-md bg-linear-to-r from-purple-700 via-violet-700 to-blue-700 text-white border border-purple-500/20 shadow-2xl overflow-hidden relative">
+            {/* Animated gradient overlay */}
+            <motion.div
+              className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent"
+              animate={{ x: ['-100%', '200%'] }}
+              transition={{ duration: 3, repeat: Infinity, repeatDelay: 1 }}
+            />
+            
+            <CardContent className="p-6 relative z-10">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
                 >
-                  <div className={`w-2 h-2 rounded-full mr-2 ${wsConnected ? 'bg-white animate-pulse' : 'bg-red-200'}`} />
-                  {wsConnected ? 'Connected' : 'Disconnected'}
-                </Badge>
-                <Badge variant="secondary" className="px-3 py-1">
-                  <ActivityIcon className="w-3 h-3 mr-2" />
-                  Active: {transfers.length}
-                </Badge>
-                <Badge variant="secondary" className="px-3 py-1">
-                  <FolderOpen className="w-3 h-3 mr-2" />
-                  Files: {files.length}
-                </Badge>
-                <Button
-                  variant="destructive"
-                  disabled={resetting}
-                  onClick={handleReset}
-                  className="text-xs"
+                  <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    >
+                      <Radio className="w-8 h-8" />
+                    </motion.div>
+                    <span className="flex items-center gap-2">
+                      Smart File Transfer System
+                      <Sparkles className="w-5 h-5 text-yellow-300 animate-pulse" />
+                    </span>
+                  </h1>
+                  <p className="text-white/90 text-sm">
+                    Real-time Chunked File Transfer with SHA-256 Verification
+                  </p>
+                </motion.div>
+                <motion.div 
+                  className="flex flex-wrap gap-3"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
                 >
-                  {resetting ? 'Resetting...' : 'Reset'}
-                </Button>
+                  <Badge 
+                    variant={wsConnected ? 'success' : 'destructive'}
+                    className="px-3 py-1 shadow-lg"
+                  >
+                    <motion.div 
+                      className={`w-2 h-2 rounded-full mr-2 ${wsConnected ? 'bg-white' : 'bg-red-200'}`}
+                      animate={wsConnected ? { scale: [1, 1.2, 1] } : {}}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
+                    {wsConnected ? 'Connected' : 'Disconnected'}
+                  </Badge>
+                  <Badge variant="secondary" className="px-3 py-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm">
+                    <ActivityIcon className="w-3 h-3 mr-2" />
+                    Active: {transfers.length}
+                  </Badge>
+                  <Badge variant="secondary" className="px-3 py-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm">
+                    <FolderOpen className="w-3 h-3 mr-2" />
+                    Files: {files.length}
+                  </Badge>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button
+                      variant="destructive"
+                      disabled={resetting}
+                      onClick={handleReset}
+                      className="text-xs shadow-lg"
+                    >
+                      {resetting ? 'Resetting...' : 'Reset'}
+                    </Button>
+                  </motion.div>
+                </motion.div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div 
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
           <ActiveTransfers transfers={transfers} />
           <ChunkVisualizer transfer={activeTransfer} />
-        </div>
+        </motion.div>
 
         {/* Activity Log */}
-        <ActivityLog logs={logs} />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <ActivityLog logs={logs} />
+        </motion.div>
 
         {/* File List */}
-        <FileList files={files} onDownload={handleDownload} />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <FileList files={files} onDownload={handleDownload} />
+        </motion.div>
       </div>
     </div>
   )
