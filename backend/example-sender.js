@@ -6,8 +6,8 @@ const path = require('path');
  * Example client to send files to the Smart File Transfer System
  * This demonstrates how another server can send chunked files with SHA-256 hashes
  */
-
-const SERVER_URL = 'http://localhost:5050/api';
+// Point to deployed backend by default; falls back to local when env set
+const SERVER_URL = process.env.SERVER_URL || 'https://data-receiver.onrender.com/api';
 const CHUNK_SIZE = 64 * 1024; // 64KB chunks
 
 async function sendFile(filePath) {

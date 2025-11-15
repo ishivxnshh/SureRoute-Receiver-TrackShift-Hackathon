@@ -7,7 +7,7 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const app = express();
-const PORT = 5050; // Different port as requested
+const PORT = process.env.PORT || 5050; // Render provides PORT in production
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
