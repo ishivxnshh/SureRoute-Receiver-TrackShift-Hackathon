@@ -1,0 +1,8 @@
+{
+  "name": "smart-file-transfer-system",
+  "version": "1.0.0",
+  "description": "Smart file transfer system with chunked uploads and SHA-256 verification",
+  "keywords": ["file-transfer", "websocket", "react", "sha256"],
+  "author": "",
+  "license": "MIT"
+}

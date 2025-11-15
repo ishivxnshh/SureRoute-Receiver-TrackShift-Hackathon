@@ -1,0 +1,3 @@
+# Build configuration for Render
+buildCommand = "npm install && npm run build"
+startCommand = "npm run preview"
