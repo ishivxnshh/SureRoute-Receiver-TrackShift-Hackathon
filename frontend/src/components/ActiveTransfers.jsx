@@ -51,7 +51,8 @@ export default function ActiveTransfers({ transfers }) {
       <CardContent className="space-y-4">
         <AnimatePresence mode="popLayout">
           {transfers.map((transfer, idx) => {
-            const progress = (transfer.receivedChunks / transfer.totalChunks) * 100
+            const receivedCount = Array.isArray(transfer.receivedChunks) ? transfer.receivedChunks.length : transfer.receivedChunks
+            const progress = (receivedCount / transfer.totalChunks) * 100
             const TransferIcon = transfer.transferMethod === 'bluetooth' ? Bluetooth : Wifi
             const methodColor = transfer.transferMethod === 'bluetooth' ? 'text-blue-500' : 'text-green-500'
             
@@ -91,18 +92,18 @@ export default function ActiveTransfers({ transfers }) {
                 </div>
 
                 <div className="space-y-2 relative z-10">
-                  <div className="flex justify-between text-xs text-gray-600 font-medium">
-                    <span>{transfer.receivedChunks} / {transfer.totalChunks} chunks</span>
+                  <div className="flex justify-between text-xs text-gray-400 font-medium">
+                    <span>{receivedCount} / {transfer.totalChunks} chunks</span>
                     <motion.span
                       key={progress}
                       initial={{ scale: 1.2 }}
                       animate={{ scale: 1 }}
-                      className="text-purple-600 font-bold"
+                      className="text-purple-400 font-bold"
                     >
                       {Math.round(progress)}%
                     </motion.span>
                   </div>
-                  <Progress value={progress} className="h-2 bg-gray-200" />
+                  <Progress value={progress} className="h-2 bg-gray-700" />
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-gray-500 relative z-10">
