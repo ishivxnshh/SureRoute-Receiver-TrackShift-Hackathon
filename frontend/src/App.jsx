@@ -19,9 +19,6 @@ function App() {
   const [logs, setLogs] = useState([])
   const [activeTransfer, setActiveTransfer] = useState(null)
   const [ws, setWs] = useState(null)
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [executing, setExecuting] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
   const [resetting, setResetting] = useState(false)
 
   const addLog = useCallback((message, type = 'info') => {
@@ -150,6 +147,7 @@ function App() {
         ws.close()
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleDownload = async (file) => {
@@ -174,14 +172,13 @@ function App() {
   const handleReset = async () => {
     try {
       setResetting(true)
-      // Optimistically clear local state
+      // Clear only file/chunk data, preserve logs
       setTransfers([])
       setFiles([])
       setActiveTransfer(null)
-      setLogs([])
       const resp = await fetch(`${API_URL}/reset`, { method: 'POST' })
       if (!resp.ok) throw new Error('Reset failed')
-      addLog('Reset completed', 'success')
+      addLog('Reset completed: cleared files and chunks', 'success')
     } catch (e) {
       addLog(`Reset error: ${e.message}`, 'error')
     } finally {
@@ -190,77 +187,7 @@ function App() {
   }
 
 
-  const handleExecute = async () => {
-    if (!selectedFile || executing) return
-    try {
-      setExecuting(true)
-      setUploadProgress(0)
-      addLog(`Execute started: ${selectedFile.name}`, 'chunk')
-      const CHUNK_SIZE = 64 * 1024
-      const fileId = crypto.randomUUID()
-      const totalChunks = Math.ceil(selectedFile.size / CHUNK_SIZE)
 
-      // Init transfer
-      const initResp = await fetch(`${API_URL}/transfer/init`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileId,
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          totalChunks,
-          mimeType: selectedFile.type || 'application/octet-stream'
-        })
-      })
-      if (!initResp.ok) throw new Error('Init failed')
-
-      // Helper converters
-      const bufferToHex = (arrayBuffer) => {
-        const bytes = new Uint8Array(arrayBuffer)
-        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
-      }
-      const bufferToBase64 = (arrayBuffer) => {
-        const bytes = new Uint8Array(arrayBuffer)
-        let binary = ''
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-        return btoa(binary)
-      }
-
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE
-        const end = Math.min(start + CHUNK_SIZE, selectedFile.size)
-        const chunkBlob = selectedFile.slice(start, end)
-        const chunkBuffer = await chunkBlob.arrayBuffer()
-        const hashBuffer = await crypto.subtle.digest('SHA-256', chunkBuffer)
-        const chunkHash = bufferToHex(hashBuffer)
-        const chunkData = bufferToBase64(chunkBuffer)
-
-        const resp = await fetch(`${API_URL}/transfer/chunk`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileId,
-            chunkIndex: i,
-            chunkData,
-            chunkHash
-          })
-        })
-        if (!resp.ok) throw new Error(`Chunk ${i + 1} failed`)
-        setUploadProgress(((i + 1) / totalChunks) * 100)
-        addLog(`Sent chunk ${i + 1}/${totalChunks} for ${selectedFile.name}`, 'chunk')
-        // Small delay for visualization aesthetics
-        await new Promise(r => setTimeout(r, 60))
-      }
-
-      addLog(`All chunks sent: ${selectedFile.name}`, 'success')
-      setSelectedFile(null)
-    } catch (e) {
-      addLog(`Execute error: ${e.message}`, 'error')
-    } finally {
-      setExecuting(false)
-      setUploadProgress(0)
-    }
-  }
   return (
     <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-blue-50">
       <div className="container mx-auto p-6 space-y-6 max-w-7xl">
@@ -293,45 +220,16 @@ function App() {
                   <FolderOpen className="w-3 h-3 mr-2" />
                   Files: {files.length}
                 </Badge>
-                <div className="flex items-center gap-2 bg-white/10 rounded-md p-2">
-                  <input
-                    type="file"
-                    className="text-xs text-white max-w-40"
-                    onChange={(e) => setSelectedFile(e.target.files[0])}
-                  />
-                  <Button
-                    variant="secondary"
-                    disabled={!selectedFile || executing}
-                    onClick={handleExecute}
-                    className="text-xs"
-                  >
-                    {executing ? 'Executing...' : 'Execute'}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    disabled={resetting}
-                    onClick={handleReset}
-                    className="text-xs"
-                  >
-                    {resetting ? 'Resetting...' : 'Reset'}
-                  </Button>
-                </div>
+                <Button
+                  variant="destructive"
+                  disabled={resetting}
+                  onClick={handleReset}
+                  className="text-xs"
+                >
+                  {resetting ? 'Resetting...' : 'Reset'}
+                </Button>
               </div>
             </div>
-            {executing && (
-              <div className="mt-4 text-xs">
-                <div className="flex justify-between mb-1">
-                  <span>Uploading: {selectedFile?.name}</span>
-                  <span>{Math.round(uploadProgress)}%</span>
-                </div>
-                <div className="h-2 w-full bg-white/20 rounded">
-                  <div
-                    className="h-2 bg-green-400 rounded"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
 
