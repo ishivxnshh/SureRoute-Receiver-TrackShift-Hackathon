@@ -43,7 +43,7 @@ export default function ChunkVisualizer({ transfer }) {
       </CardHeader>
       <CardContent>
         <div className="mb-4 text-sm text-gray-500">
-          {transfer.receivedChunks} / {transfer.totalChunks} chunks received
+          {receivedSet.size} / {transfer.totalChunks} chunks received
         </div>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-2 max-h-[400px] overflow-y-auto p-2 bg-gray-50 rounded-lg">
           {chunks.map((chunkIndex) => {
