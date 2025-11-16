@@ -36,14 +36,14 @@ export default function ActiveTransfers({ transfers }) {
   }
 
   return (
-    <Card className="h-full backdrop-blur-sm bg-white/80 border-white/40 shadow-xl">
+    <Card className="h-full backdrop-blur-sm bg-gray-900/80 border-gray-700/40 shadow-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Package className="w-5 h-5 text-purple-600" />
-          <span className="bg-linear-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+          <Package className="w-5 h-5 text-purple-400" />
+          <span className="bg-linear-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
             Active Transfers
           </span>
-          <Badge variant="secondary" className="ml-auto">
+          <Badge variant="secondary" className="ml-auto bg-gray-800 text-gray-200">
             {transfers.length} active
           </Badge>
         </CardTitle>
@@ -51,8 +51,12 @@ export default function ActiveTransfers({ transfers }) {
       <CardContent className="space-y-4">
         <AnimatePresence mode="popLayout">
           {transfers.map((transfer, idx) => {
-            const receivedCount = Array.isArray(transfer.receivedChunks) ? transfer.receivedChunks.length : transfer.receivedChunks
-            const progress = (receivedCount / transfer.totalChunks) * 100
+            const receivedCount = Array.isArray(transfer.receivedChunks) 
+              ? transfer.receivedChunks.length 
+              : (typeof transfer.receivedChunks === 'number' ? transfer.receivedChunks : 0)
+            const progress = transfer.totalChunks > 0 
+              ? (receivedCount / transfer.totalChunks) * 100 
+              : 0
             const TransferIcon = transfer.transferMethod === 'bluetooth' ? Bluetooth : Wifi
             const methodColor = transfer.transferMethod === 'bluetooth' ? 'text-blue-500' : 'text-green-500'
             
