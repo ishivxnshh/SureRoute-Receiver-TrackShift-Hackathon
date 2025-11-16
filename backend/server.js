@@ -59,9 +59,53 @@ function verifyHash(data, expectedHash) {
   return hash === expectedHash;
 }
 
+// Priority calculation model
+function calculatePriority(bandwidthMbps, lossPercent, file_size_mb) {
+  let priority = 'NORMAL';
+  let priorityConfidence = 0.8;
+
+  // Rule 1: High loss → HIGH priority
+  if (lossPercent >= 5) {
+    priority = 'HIGH';
+    priorityConfidence = 0.95;
+  }
+  // Rule 2: Low bandwidth
+  else if (bandwidthMbps <= 3) {
+    if (file_size_mb <= 200) {
+      priority = 'HIGH';
+      priorityConfidence = 0.9;
+    } else {
+      priority = 'NORMAL';
+      priorityConfidence = 0.85;
+    }
+  }
+  // Rule 3: High bandwidth
+  else if (bandwidthMbps >= 20) {
+    if (file_size_mb >= 2000) {
+      priority = 'LOW';
+      priorityConfidence = 0.9;
+    } else {
+      priority = 'NORMAL';
+      priorityConfidence = 0.85;
+    }
+  }
+  // Rule 4: Medium bandwidth (3 < bw < 20)
+  else {
+    if (file_size_mb <= 500) {
+      priority = 'NORMAL';
+      priorityConfidence = 0.8;
+    } else {
+      priority = 'LOW';
+      priorityConfidence = 0.85;
+    }
+  }
+
+  return { priority, priorityConfidence };
+}
+
 // Initialize a new file transfer
 app.post('/api/transfer/init', (req, res) => {
-  const { fileId, fileName, fileSize, totalChunks, mimeType, transferMethod } = req.body;
+  const { fileId, fileName, fileSize, totalChunks, mimeType, transferMethod, bandwidthMbps, lossPercent } = req.body;
   
   if (!fileId || !fileName || !totalChunks) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -69,6 +113,12 @@ app.post('/api/transfer/init', (req, res) => {
 
   const method = transferMethod || 'wifi'; // Default to WiFi
   transferMethods.set(fileId, method);
+
+  // Calculate priority
+  const bandwidth = bandwidthMbps || 10; // Default 10 Mbps
+  const loss = lossPercent || 0; // Default 0%
+  const file_size_mb = (fileSize || 0) / (1024 * 1024); // Convert bytes to MB
+  const { priority, priorityConfidence } = calculatePriority(bandwidth, loss, file_size_mb);
 
   fileTransfers.set(fileId, {
     fileId,
@@ -81,17 +131,21 @@ app.post('/api/transfer/init', (req, res) => {
     startTime: Date.now(),
     status: 'receiving',
     transferMethod: method,
-    methodSwitches: [] // Track method switches
+    methodSwitches: [], // Track method switches
+    bandwidthMbps: bandwidth,
+    lossPercent: loss,
+    priority,
+    priorityConfidence
   });
 
-  console.log(`📡 Initialized ${method.toUpperCase()} transfer for ${fileName} (${totalChunks} chunks)`);
+  console.log(`📡 Initialized ${method.toUpperCase()} transfer for ${fileName} (${totalChunks} chunks) - Priority: ${priority} (${(priorityConfidence * 100).toFixed(0)}% confidence)`);
   
   broadcast({
     type: 'TRANSFER_INIT',
     transfer: fileTransfers.get(fileId)
   });
 
-  res.json({ success: true, fileId, transferMethod: method });
+  res.json({ success: true, fileId, transferMethod: method, priority, priorityConfidence });
 });
 
 // Switch transfer method
